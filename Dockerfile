@@ -5,7 +5,7 @@
 #  4. segredo em ENV/ARG       -> nenhum; SECRET_KEY/ADMIN_PASSWORD só em runtime
 #  5. servidor de dev          -> gunicorn
 #  6. debug ligado + COPY .    -> debug removido; .dockerignore limita o contexto
-FROM python:3.12.12-slim-bookworm
+FROM python:3.14.8-slim-bookworm
 
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 
