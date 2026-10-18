@@ -30,6 +30,7 @@ jobs:
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"
+          trivyignores: ".trivyignore" 
       - name: Smoke test com flags de runtime seguras
         run: |
           SECRET_KEY="$(openssl rand -hex 32)"

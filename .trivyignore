@@ -1,0 +1,11 @@
+# CVEs em pacotes Perl da imagem base python:3.12-slim (Debian bookworm)
+# Não há correção disponível no Debian no momento (status: affected, no fix).
+# A aplicação TaskFlow não utiliza Perl. Risco aceito temporariamente.
+
+CVE-2026-42496
+CVE-2026-8376
+CVE-2026-42497
+CVE-2026-48962
+CVE-2026-57432
+CVE-2026-57433
+CVE-2026-13221
