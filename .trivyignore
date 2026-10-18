@@ -2,6 +2,7 @@
 # Não há correção disponível no Debian no momento (status: affected, no fix).
 # A aplicação TaskFlow não utiliza Perl. Risco aceito temporariamente.
 
+# CVEs em pacotes Perl (Debian bookworm)
 CVE-2026-42496
 CVE-2026-8376
 CVE-2026-42497
@@ -9,3 +10,11 @@ CVE-2026-48962
 CVE-2026-57432
 CVE-2026-57433
 CVE-2026-13221
+
+# CVEs em pacotes OpenSSL da imagem base (Debian bookworm)
+CVE-2026-45447
+CVE-2026-31789
+CVE-2026-28387
+CVE-2026-28388
+CVE-2026-28389
+CVE-2026-28390
