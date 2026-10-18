@@ -1,0 +1,12 @@
+title = "TaskFlow: configuração do Gitleaks"
+
+[extend]
+useDefault = true
+
+# Os segredos da versão ORIGINAL da TaskFlow (SECRET_KEY e ADMIN_PASSWORD) ficam no
+# histórico por design: são o ponto de partida didático do lab. Ignoramos SOMENTE o
+# commit-baseline. Qualquer segredo em outro commit continua derrubando o job.
+# O script criar-repo.sh preenche o SHA abaixo automaticamente.
+[allowlist]
+description = "Commit-baseline didático (versão original vulnerável da TaskFlow)"
+commits = ["1d1fff4135d5c7da82226d249b7c9827ca98a0f4"]

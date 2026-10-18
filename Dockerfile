@@ -1,11 +1,29 @@
-# TaskFlow ORIGINAL: Dockerfile propositalmente inseguro (didático)
-FROM python:3.9
-ARG SECRET_KEY=9f1c2e7a8b4d6e30a1b2c3d4e5f60718
-ENV SECRET_KEY=$SECRET_KEY
-ENV ADMIN_PASSWORD=Xk7Qp2vLe4Rz8Tn3Wm5Yb9
-ENV FLASK_DEBUG=1
+# Corrige as 6 falhas do Dockerfile original:
+#  1. base com tag fixada      -> python:3.12.x-slim-bookworm (sem :latest)
+#  2. base mínima              -> slim, sem toolchain de build
+#  3. root                     -> USER não-root (uid 10001)
+#  4. segredo em ENV/ARG       -> nenhum; SECRET_KEY/ADMIN_PASSWORD só em runtime
+#  5. servidor de dev          -> gunicorn
+#  6. debug ligado + COPY .    -> debug removido; .dockerignore limita o contexto
+FROM python:3.12.12-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DB_PATH=/data/taskflow.db
+
 WORKDIR /app
-COPY . .
+
+COPY requirements.txt .
 RUN pip install -r requirements.txt
+
+COPY app.py .
+
+RUN useradd --system --no-create-home --uid 10001 appuser \
+ && mkdir /data && chown appuser:appuser /data
+USER appuser
+VOLUME /data
+
 EXPOSE 5000
-CMD ["python", "app.py"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--worker-tmp-dir", "/dev/shm", "--no-control-socket", "app:app"]

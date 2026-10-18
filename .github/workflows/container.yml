@@ -1,0 +1,44 @@
+name: Container
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: taskflow:${{ github.sha }}
+
+jobs:
+  build-and-scan:
+    name: build-and-scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build da imagem
+        run: docker build -t "$IMAGE" .
+      - name: Trivy (gate HIGH,CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Smoke test com flags de runtime seguras
+        run: |
+          SECRET_KEY="$(openssl rand -hex 32)"
+          docker run -d --name tf --read-only --tmpfs /tmp --tmpfs /data:uid=10001 \
+            --cap-drop ALL --security-opt no-new-privileges:true \
+            -e SECRET_KEY="$SECRET_KEY" -p 5000:5000 "$IMAGE"
+          for _ in $(seq 1 15); do
+            curl -fsS http://localhost:5000/healthz && exit 0
+            sleep 1
+          done
+          docker logs tf
+          exit 1

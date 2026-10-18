@@ -1,0 +1,5 @@
+# TROQUE pelos usuários reais do grupo (ex.: @cicero @colega1 @colega2)
+*                    @USUARIO_1
+/.github/            @USUARIO_1 @USUARIO_2
+/Dockerfile          @USUARIO_1 @USUARIO_2
+/app.py              @USUARIO_1 @USUARIO_3
