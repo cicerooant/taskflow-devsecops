@@ -3,16 +3,17 @@
 Evidências geradas por `scripts/trivy-antes-depois.sh` (ficam em `docs/evidencias/`).
 
 ## Trivy (HIGH,CRITICAL): antes × depois
-Gerado em 18/10/2026 com Trivy 0.69.3. Saída completa em `docs/evidencias/trivy-*.txt`.
+Gerado com Trivy 0.69.3 ("antes" em 18/10/2026; "depois" refeito em 19/10/2026, após o
+Dependabot atualizar a base para 3.12.15 no PR #4). Saída completa em `docs/evidencias/trivy-*.txt`.
 
 | | Antes (`taskflow:antes`) | Depois (`taskflow:depois`) |
 |---|---|---|
-| Imagem base | `python:3.9` (Debian 13, completa) | `python:3.12.12-slim-bookworm` (Debian 12.15) |
+| Imagem base | `python:3.9` (Debian 13, completa) | `python:3.12.15-slim-bookworm` (Debian 12.15) |
 | CRITICAL (todas) | 235 | 2 |
 | HIGH (todas) | 2.114 (2.108 SO + 6 Python) | 61 |
 | **Total HIGH+CRITICAL** | **2.349** | **63** (−97%) |
 | Com correção disponível (o que o gate avalia) | 2.014 | **0** |
-| Tamanho da imagem (`docker image inspect`) | 410 MB | 64 MB |
+| Tamanho da imagem (`docker image inspect`) | 410 MB | 50 MB |
 | Usuário | root | appuser (10001) |
 | Resultado no gate do CI | reprovaria | aprovado |
 
@@ -32,7 +33,7 @@ runtime (`-e` / secret do orquestrador).
 ## As 6 falhas e a correção
 | # | Falha no Dockerfile original | Correção |
 |---|---|---|
-| 1 | Base `python:3.9` sem versão de patch fixada | `python:3.12.12-slim-bookworm` (tag fixada) |
+| 1 | Base `python:3.9` sem versão de patch fixada | `python:3.12.15-slim-bookworm` (tag fixada) |
 | 2 | Imagem base completa (toolchain, centenas de pacotes) | variante `slim` |
 | 3 | Container roda como root | `USER appuser` (uid 10001) |
 | 4 | Segredos em `ARG`/`ENV` | nenhum segredo na imagem; `SECRET_KEY` e `ADMIN_PASSWORD` só em runtime |
