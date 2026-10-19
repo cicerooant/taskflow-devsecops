@@ -13,6 +13,7 @@ permissions:
 
 env:
   PYTHON_VERSION: "3.12"
+  PIP_AUDIT_VERSION: "2.10.1"
 
 jobs:
   pip-audit:
@@ -28,5 +29,5 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: pip-audit (gate)
         run: |
-          pip install pip-audit
+          pip install "pip-audit==${PIP_AUDIT_VERSION}"
           pip-audit -r requirements.txt --strict

@@ -11,6 +11,7 @@ permissions:
 
 env:
   PYTHON_VERSION: "3.12"
+  SEMGREP_VERSION: "1.181.0"
 
 jobs:
   semgrep:
@@ -26,7 +27,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Semgrep (qualquer achado derruba o job)
         run: |
-          pip install semgrep
+          pip install "semgrep==${SEMGREP_VERSION}"
           semgrep scan --config p/python --config p/flask --config p/security-audit --error .
 
   gitleaks:

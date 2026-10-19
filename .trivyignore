@@ -1,20 +1,11 @@
-# CVEs em pacotes Perl da imagem base python:3.12-slim (Debian bookworm)
-# Não há correção disponível no Debian no momento (status: affected, no fix).
-# A aplicação TaskFlow não utiliza Perl. Risco aceito temporariamente.
-
-# CVEs em pacotes Perl (Debian bookworm)
-CVE-2026-42496
-CVE-2026-8376
-CVE-2026-42497
-CVE-2026-48962
-CVE-2026-57432
-CVE-2026-57433
-CVE-2026-13221
-
-# CVEs em pacotes OpenSSL da imagem base (Debian bookworm)
-CVE-2026-45447
-CVE-2026-31789
-CVE-2026-28387
-CVE-2026-28388
-CVE-2026-28389
-CVE-2026-28390
+# Exceções do gate do Trivy (container.yml), uma CVE por linha.
+#
+# Política do grupo:
+#  - CVEs SEM correção disponível já são tratadas pelo `ignore-unfixed: true` do workflow;
+#    não precisam (e não devem) ser listadas aqui.
+#  - Só entra aqui CVE COM correção que, por motivo justificado, não possa ser aplicada
+#    ainda. Cada entrada exige comentário (pacote, motivo, data) e registro em
+#    docs/hardening.md, seção "Riscos aceitos".
+#
+# Situação atual (18/10/2026): nenhuma exceção necessária. A imagem passa no gate
+# HIGH,CRITICAL sem nenhuma entrada neste arquivo.

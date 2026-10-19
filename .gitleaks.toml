@@ -10,3 +10,10 @@ useDefault = true
 [allowlist]
 description = "Commit-baseline didático (versão original vulnerável da TaskFlow)"
 commits = ["1d1fff4135d5c7da82226d249b7c9827ca98a0f4"]
+
+# Falso positivo (generic-api-key) em docs/evidencias/history-*.txt: GPG_KEY é o
+# fingerprint PÚBLICO (40 hex) da chave do release manager do CPython, definido pela
+# imagem oficial python:* para verificar o tarball. Não é segredo. A regex exige o
+# formato exato de fingerprint, então qualquer outro valor continua sendo detectado.
+regexTarget = "match"
+regexes = ['''GPG_KEY=[0-9A-F]{40}\b''']

@@ -15,3 +15,8 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    # Só patches da 3.12 (ex.: 3.12.12 -> 3.12.13). Trocar de minor (3.12 -> 3.14)
+    # é decisão de projeto, feita à mão e testada, não um bump automático.
+    ignore:
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]

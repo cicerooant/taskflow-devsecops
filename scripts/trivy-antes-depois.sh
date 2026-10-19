@@ -12,7 +12,8 @@ docker build -q -t taskflow:depois .
 
 for tag in antes depois; do
   trivy image --severity HIGH,CRITICAL --no-progress "taskflow:$tag" | tee "$out/trivy-$tag.txt" | tail -n 8
-  docker history --no-trunc "taskflow:$tag" > "$out/history-$tag.txt"
+  # Mascara os segredos didáticos do baseline: commitá-los de novo derrubaria o Gitleaks.
+  docker history --no-trunc "taskflow:$tag"     | sed -E 's/(SECRET_KEY|ADMIN_PASSWORD)=[A-Za-z0-9]{12,}/=***REDACTED***/g'     > "$out/history-$tag.txt"
   docker image inspect "taskflow:$tag" --format '{{.Config.User}}|{{.Size}}' > "$out/inspect-$tag.txt"
 done
 echo "Evidências em $out/. Copie os números para docs/hardening.md."
