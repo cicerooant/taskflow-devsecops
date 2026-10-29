@@ -1,4 +1,6 @@
+import json
 import sqlite3
+import uuid
 
 from conftest import ADMIN_PWD, USER_PWD
 
@@ -116,3 +118,54 @@ def test_erro_login_escapa_usuario_no_html(client):
     assert response.status_code == 401
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in response.get_data(as_text=True)
     assert payload not in response.get_data(as_text=True)
+
+
+def test_logs_json_com_eventos_request_id_e_sem_dados_sensiveis(client, capsys):
+    password_marker = "PASSWORD_MUST_NOT_BE_LOGGED"
+    cookie_marker = "COOKIE_MUST_NOT_BE_LOGGED"
+    title_marker = "TITLE_MUST_NOT_BE_LOGGED"
+    search_marker = "SEARCH_MUST_NOT_BE_LOGGED"
+
+    failed = client.post(
+        "/login",
+        json={"username": "admin", "password": password_marker},
+        headers={"Cookie": f"session={cookie_marker}"},
+    )
+    assert failed.status_code == 401
+    assert uuid.UUID(failed.headers["X-Request-ID"])
+
+    assert login(client).status_code == 200
+    assert client.post("/tasks", json={"title": title_marker}).status_code == 201
+    assert client.get("/tasks", query_string={"q": search_marker}).status_code == 200
+    output = capsys.readouterr().out
+    events = [json.loads(line) for line in output.splitlines() if line.strip()]
+
+    event_names = {event["event"] for event in events}
+    assert {
+        "login_success",
+        "login_failure",
+        "task_created",
+        "tasks_listed",
+        "request_completed",
+    } <= event_names
+    for event in events:
+        assert uuid.UUID(event["request_id"])
+        assert event["ip"]
+
+    login_failure = next(event for event in events if event["event"] == "login_failure")
+    assert login_failure["username"] == "admin"
+
+    login_success = next(event for event in events if event["event"] == "login_success")
+    assert login_success["username"] == "admin"
+
+    task_created = next(event for event in events if event["event"] == "task_created")
+    assert task_created["title_size"] == len(title_marker)
+    assert "title" not in task_created
+
+    tasks_listed = next(event for event in events if event["event"] == "tasks_listed")
+    assert tasks_listed["search_size"] == len(search_marker)
+    assert "search" not in tasks_listed
+
+    serialized_logs = json.dumps(events)
+    for marker in (password_marker, cookie_marker, title_marker, search_marker):
+        assert marker not in serialized_logs

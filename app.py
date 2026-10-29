@@ -1,10 +1,54 @@
 """TaskFlow: gerenciador de tarefas (Flask + SQLite)."""
 
+import json
+import logging
 import os
 import sqlite3
+import sys
+import time
+import uuid
+from datetime import datetime, timezone
 
 from flask import Flask, g, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
+
+
+class JsonFormatter(logging.Formatter):
+    def format(self, record):
+        payload = {
+            "ts": datetime.fromtimestamp(record.created, timezone.utc).isoformat(),
+            "level": record.levelname,
+            "event": record.getMessage(),
+        }
+        payload.update(getattr(record, "fields", {}))
+        return json.dumps(payload, ensure_ascii=False)
+
+
+class StdoutHandler(logging.StreamHandler):
+    def __init__(self):
+        super().__init__(sys.stdout)
+
+    @property
+    def stream(self):
+        return sys.stdout
+
+    @stream.setter
+    def stream(self, _value):
+        pass
+
+
+def build_logger():
+    logger = logging.getLogger("taskflow")
+    if not logger.handlers:
+        handler = StdoutHandler()
+        handler.setFormatter(JsonFormatter())
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+        logger.propagate = False
+    return logger
+
+
+log = build_logger()
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -66,6 +110,36 @@ def create_app(test_config=None):
     def wants_html():
         return request.accept_mimetypes.accept_html > request.accept_mimetypes["application/json"]
 
+    def log_event(event, level=logging.INFO, **fields):
+        log.log(
+            level,
+            event,
+            extra={
+                "fields": {
+                    "request_id": g.get("request_id"),
+                    "ip": request.remote_addr,
+                    **fields,
+                }
+            },
+        )
+
+    @app.before_request
+    def start_request():
+        g.request_id = str(uuid.uuid4())
+        g.request_started = time.perf_counter()
+
+    @app.after_request
+    def finish_request(response):
+        response.headers["X-Request-ID"] = g.request_id
+        log_event(
+            "request_completed",
+            method=request.method,
+            path=request.path,
+            status=response.status_code,
+            duration_ms=round((time.perf_counter() - g.request_started) * 1000, 1),
+        )
+        return response
+
     @app.get("/")
     def index():
         return redirect(url_for("list_tasks" if current_user_id() else "login_page"))
@@ -110,6 +184,7 @@ def create_app(test_config=None):
             .fetchone()
         )
         if row is None or not check_password_hash(row["password_hash"], data.get("password") or ""):
+            log_event("login_failure", level=logging.WARNING, username=username)
             error = (
                 f"Credenciais inválidas para {username}"
                 if username
@@ -120,6 +195,7 @@ def create_app(test_config=None):
             return render_template("login.html", error=error, username=username), 401
         session.clear()
         session["user_id"] = row["id"]
+        log_event("login_success", username=username)
         if not request.is_json:
             return redirect(url_for("list_tasks", q=data.get("q", "")), code=303)
         return jsonify(status="ok")
@@ -149,6 +225,11 @@ def create_app(test_config=None):
             )
             .fetchall()
         )
+        log_event(
+            "tasks_listed",
+            result_count=len(rows),
+            search_size=len(term),
+        )
         if wants_html():
             return render_template("tasks.html", tasks=rows, term=term)
         return jsonify([dict(r) for r in rows])
@@ -164,6 +245,7 @@ def create_app(test_config=None):
             return jsonify(error="título obrigatório"), 400
         cur = get_db().execute("INSERT INTO tasks (owner_id, title) VALUES (?, ?)", (uid, title))
         get_db().commit()
+        log_event("task_created", title_size=len(title))
         if wants_html():
             return redirect(url_for("list_tasks"), code=303)
         return jsonify(id=cur.lastrowid, title=title, done=0), 201
