@@ -1,0 +1,17 @@
+# Intentionally insecure IaC example for the Checkov/Trivy demonstration.
+resource "aws_s3_bucket" "data" {
+  bucket = "taskflow-data"
+  acl    = "public-read"
+}
+
+resource "aws_security_group" "app" {
+  name        = "taskflow-app"
+  description = "Insecure demonstration security group."
+
+  ingress {
+    from_port   = 0
+    to_port     = 65535
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
