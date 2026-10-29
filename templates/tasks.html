@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tarefas · TaskFlow</title>
+  </head>
+  <body>
+    <main>
+      <h1>TaskFlow</h1>
+      <form method="get" action="{{ url_for('list_tasks') }}">
+        <label for="q">Buscar tarefas</label>
+        <input id="q" name="q" value="{{ term }}">
+        <button type="submit">Buscar</button>
+      </form>
+      <form method="post" action="{{ url_for('create_task') }}">
+        <label for="title">Nova tarefa</label>
+        <input id="title" name="title" required>
+        <button type="submit">Adicionar</button>
+      </form>
+      <ul>
+        {% for task in tasks %}
+          <li>
+            {{ task.title }}{% if task.done %} (concluída){% endif %}
+            {% if not task.done %}
+              <form method="post" action="{{ url_for('complete_task', task_id=task.id) }}">
+                <button type="submit">Concluir</button>
+              </form>
+            {% endif %}
+          </li>
+        {% else %}
+          <li>Nenhuma tarefa encontrada.</li>
+        {% endfor %}
+      </ul>
+      <form method="post" action="{{ url_for('logout') }}">
+        <button type="submit">Sair</button>
+      </form>
+    </main>
+  </body>
+</html>

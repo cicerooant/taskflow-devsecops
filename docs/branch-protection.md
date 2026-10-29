@@ -10,7 +10,7 @@ Settings → Branches → Add branch ruleset (ou *Add classic branch protection 
 - [x] Require a pull request before merging (1 aprovação)
 - [x] Require review from Code Owners
 - [x] Require status checks to pass before merging, marcando:
-  `lint-and-test`, `semgrep`, `gitleaks`, `pip-audit`, `build-and-scan`
+  `lint-and-test`, `semgrep`, `gitleaks`, `pip-audit`, `build-and-scan`, `zap-baseline`
   (os checks só aparecem na lista depois de rodarem uma vez)
 - [x] Require branches to be up to date before merging
 - [x] Do not allow bypassing the above settings (inclui administradores)
@@ -21,7 +21,7 @@ gh api -X PUT repos/OWNER/REPO/branches/main/protection --input - <<'JSON'
 {
   "required_status_checks": {
     "strict": true,
-    "contexts": ["lint-and-test", "semgrep", "gitleaks", "pip-audit", "build-and-scan"]
+    "contexts": ["lint-and-test", "semgrep", "gitleaks", "pip-audit", "build-and-scan", "zap-baseline"]
   },
   "enforce_admins": true,
   "required_pull_request_reviews": {

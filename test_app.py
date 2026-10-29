@@ -45,3 +45,74 @@ def test_busca_resiste_a_sql_injection(client):
 
 def test_login_resiste_a_sql_injection(client):
     assert login(client, user="admin' --", pwd="x").status_code == 401
+
+
+def test_login_com_html_e_endpoint_debug_removido(client):
+    assert client.get("/login", headers={"Accept": "text/html"}).status_code == 200
+    assert client.get("/debug/info").status_code == 404
+    assert client.application.config["DEBUG"] is False
+
+
+def test_xss_armazenado_escapado_no_html(client):
+    login(client)
+    payload = "<script>alert(1)</script>"
+    client.post("/tasks", json={"title": payload})
+
+    response = client.get("/tasks", headers={"Accept": "text/html"})
+    assert response.status_code == 200
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in response.get_data(as_text=True)
+    assert payload not in response.get_data(as_text=True)
+
+
+def test_busca_q_escapada_no_html(client):
+    login(client)
+    payload = "<script>alert(1)</script>"
+
+    response = client.get(
+        "/tasks", query_string={"q": payload}, headers={"Accept": "text/html"}
+    )
+    assert response.status_code == 200
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in response.get_data(as_text=True)
+    assert payload not in response.get_data(as_text=True)
+
+
+def test_busca_q_sem_sessao_entrega_html_escapado(client):
+    payload = '" onmouseover=alert(1) x="'
+
+    response = client.get("/tasks", query_string={"q": payload})
+    assert response.status_code == 200
+    assert "&#34; onmouseover=alert(1) x=&#34;" in response.get_data(as_text=True)
+    assert payload not in response.get_data(as_text=True)
+
+
+def test_busca_q_escapada_na_tela_de_login(client):
+    payload = "<script>alert(1)</script>"
+
+    response = client.get(
+        "/tasks", query_string={"q": payload}, headers={"Accept": "text/html"}
+    )
+    assert response.status_code == 200
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in response.get_data(as_text=True)
+    assert payload not in response.get_data(as_text=True)
+
+
+def test_busca_q_escapada_diretamente_no_login(client):
+    payload = "<script>alert(1)</script>"
+
+    response = client.get("/login", query_string={"q": payload})
+    assert response.status_code == 200
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in response.get_data(as_text=True)
+    assert payload not in response.get_data(as_text=True)
+
+
+def test_erro_login_escapa_usuario_no_html(client):
+    payload = "<script>alert(1)</script>"
+
+    response = client.post(
+        "/login",
+        data={"username": payload, "password": "senha-incorreta"},
+        headers={"Accept": "text/html"},
+    )
+    assert response.status_code == 401
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in response.get_data(as_text=True)
+    assert payload not in response.get_data(as_text=True)
