@@ -5,6 +5,8 @@ aguarda `/login` responder e roda o ZAP Baseline em `/tasks?q=...` com um payloa
 de prova que tenta injetar um atributo de evento; sem sessão, essa busca mostra
 somente o formulário de login e não expõe tarefas. O relatório HTML é publicado como
 artefato `zap-baseline-report`, inclusive quando o job falha.
+O arquivo é gravado em um diretório temporário separado do checkout para evitar
+problemas de permissão entre o usuário do runner e o usuário do container ZAP.
 
 O ZAP Baseline é um scanner passivo, portanto não executa as regras ativas 40012 e
 40014. A regra passiva `10031` observa entrada controlada pelo usuário em atributos
