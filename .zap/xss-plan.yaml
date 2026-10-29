@@ -1,0 +1,45 @@
+env:
+  contexts:
+    - name: taskflow
+      urls:
+        - http://127.0.0.1:5000
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+jobs:
+  - type: spider
+    parameters:
+      context: taskflow
+      url: 'http://127.0.0.1:5000/tasks?q=%22%20onmouseover%3Dalert%281%29%20x%3D%22'
+      maxDuration: 1
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 1
+  - type: activeScan-policy
+    parameters:
+      name: xss-only
+    policyDefinition:
+      defaultStrength: Low
+      defaultThreshold: "Off"
+      rules:
+        - id: 40012
+          name: Reflected XSS
+          strength: Low
+          threshold: Low
+  - type: activeScan
+    parameters:
+      context: taskflow
+      url: 'http://127.0.0.1:5000/tasks?q=%22%20onmouseover%3Dalert%281%29%20x%3D%22'
+      policy: xss-only
+      maxScanDurationInMins: 1
+      maxRuleDurationInMins: 1
+      threadPerHost: 1
+  - type: report
+    parameters:
+      template: risk-confidence-html
+      reportDir: /zap/out
+      reportFile: zap-xss-report.html
+  - type: exitStatus
+    parameters:
+      errorLevel: High

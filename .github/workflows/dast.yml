@@ -41,22 +41,34 @@ jobs:
           done
           docker logs taskflow-dast
           exit 1
+      - name: Preparar diretório do relatório
+        run: |
+          mkdir -p "$RUNNER_TEMP/zap-output"
+          chmod 1777 "$RUNNER_TEMP/zap-output"
       - name: ZAP Baseline (XSS bloqueante)
         run: |
           docker run --rm --network host \
-            -v "$GITHUB_WORKSPACE:/zap/wrk/:rw" \
+            -v "$GITHUB_WORKSPACE/.zap:/zap/wrk:ro" \
+            -v "$RUNNER_TEMP/zap-output:/zap/out:rw" \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
               -t 'http://127.0.0.1:5000/tasks?q=%22%20onmouseover%3Dalert%281%29%20x%3D%22' \
-              -c /zap/wrk/.zap/rules.tsv \
-              -r /zap/wrk/zap-report.html \
+              -c /zap/wrk/rules.tsv \
+              -r /zap/out/zap-report.html \
               -i
+      - name: ZAP Active Scan (somente XSS refletido)
+        run: |
+          docker run --rm --network host \
+            -v "$GITHUB_WORKSPACE/.zap:/zap/wrk:ro" \
+            -v "$RUNNER_TEMP/zap-output:/zap/out:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap.sh -cmd -autorun /zap/wrk/xss-plan.yaml
       - name: Publicar relatório ZAP
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: zap-baseline-report
-          path: zap-report.html
+          path: ${{ runner.temp }}/zap-output/*.html
           if-no-files-found: warn
           retention-days: 14
       - name: Encerrar TaskFlow
