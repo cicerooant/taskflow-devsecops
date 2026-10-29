@@ -7,6 +7,8 @@ somente o formulário de login e não expõe tarefas. O relatório HTML é publi
 artefato `zap-baseline-report`, inclusive quando o job falha.
 O arquivo é gravado em um diretório temporário separado do checkout para evitar
 problemas de permissão entre o usuário do runner e o usuário do container ZAP.
+As regras são montadas em `/zap/wrk`, caminho exigido pelo `zap-baseline.py` para
+opções que leem arquivos.
 
 O ZAP Baseline é um scanner passivo, portanto não executa as regras ativas 40012 e
 40014. A regra passiva `10031` observa entrada controlada pelo usuário em atributos
