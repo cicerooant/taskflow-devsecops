@@ -21,6 +21,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY app.py .
+COPY templates/ templates/
 
 RUN useradd --system --no-create-home --uid 10001 appuser \
  && mkdir /data && chown appuser:appuser /data

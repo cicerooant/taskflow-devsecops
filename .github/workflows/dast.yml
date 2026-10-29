@@ -1,0 +1,64 @@
+name: DAST
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dast-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zap-baseline:
+    name: zap-baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build da imagem para DAST
+        run: docker build -t taskflow-dast:${{ github.sha }} .
+      - name: Subir TaskFlow
+        run: |
+          docker run -d --name taskflow-dast \
+            -p 127.0.0.1:5000:5000 \
+            -e SECRET_KEY="$(openssl rand -hex 32)" \
+            -e ADMIN_PASSWORD="$(openssl rand -hex 16)" \
+            taskflow-dast:${{ github.sha }}
+      - name: Aguardar aplicação responder
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5000/login >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs taskflow-dast
+          exit 1
+      - name: ZAP Baseline (XSS bloqueante)
+        run: |
+          docker run --rm --network host \
+            -v "$GITHUB_WORKSPACE:/zap/wrk/:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+              -t 'http://127.0.0.1:5000/tasks?q=%22%20onmouseover%3Dalert%281%29%20x%3D%22' \
+              -c /zap/wrk/.zap/rules.tsv \
+              -r /zap/wrk/zap-report.html \
+              -i
+      - name: Publicar relatório ZAP
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: zap-baseline-report
+          path: zap-report.html
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Encerrar TaskFlow
+        if: always()
+        run: docker rm -f taskflow-dast || true

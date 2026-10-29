@@ -3,7 +3,7 @@
 import os
 import sqlite3
 
-from flask import Flask, g, jsonify, request, session
+from flask import Flask, g, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 SCHEMA = """
@@ -26,6 +26,7 @@ def create_app(test_config=None):
     app.config.update(
         DB_PATH=os.environ.get("DB_PATH", "taskflow.db"),
         SECRET_KEY=os.environ.get("SECRET_KEY"),
+        DEBUG=os.environ.get("FLASK_DEBUG", "0") == "1",
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE", "1") == "1",
@@ -62,6 +63,19 @@ def create_app(test_config=None):
     def current_user_id():
         return session.get("user_id")
 
+    def wants_html():
+        return request.accept_mimetypes.accept_html > request.accept_mimetypes["application/json"]
+
+    @app.get("/")
+    def index():
+        return redirect(url_for("list_tasks" if current_user_id() else "login_page"))
+
+    @app.get("/login")
+    def login_page():
+        return render_template(
+            "login.html", error=None, username="", term=request.args.get("q", "")
+        )
+
     @app.get("/healthz")
     def healthz():
         return jsonify(status="ok")
@@ -85,30 +99,46 @@ def create_app(test_config=None):
 
     @app.post("/login")
     def login():
-        data = request.get_json(silent=True) or {}
+        data = request.get_json(silent=True) or request.form
+        username = (data.get("username") or "").strip()
         row = (
             get_db()
             .execute(
                 "SELECT id, password_hash FROM users WHERE username = ?",
-                (data.get("username") or "",),
+                (username,),
             )
             .fetchone()
         )
         if row is None or not check_password_hash(row["password_hash"], data.get("password") or ""):
-            return jsonify(error="credenciais inválidas"), 401
+            error = (
+                f"Credenciais inválidas para {username}"
+                if username
+                else "Credenciais inválidas"
+            )
+            if request.is_json:
+                return jsonify(error=error), 401
+            return render_template("login.html", error=error, username=username), 401
         session.clear()
         session["user_id"] = row["id"]
+        if not request.is_json:
+            return redirect(url_for("list_tasks", q=data.get("q", "")), code=303)
         return jsonify(status="ok")
 
     @app.post("/logout")
     def logout():
         session.clear()
+        if wants_html():
+            return redirect(url_for("login_page"), code=303)
         return jsonify(status="ok")
 
     @app.get("/tasks")
     def list_tasks():
         uid = current_user_id()
         if uid is None:
+            if wants_html() or "q" in request.args:
+                return render_template(
+                    "login.html", error=None, username="", term=request.args.get("q", "")
+                )
             return jsonify(error="não autenticado"), 401
         term = request.args.get("q", "")
         rows = (
@@ -119,6 +149,8 @@ def create_app(test_config=None):
             )
             .fetchall()
         )
+        if wants_html():
+            return render_template("tasks.html", tasks=rows, term=term)
         return jsonify([dict(r) for r in rows])
 
     @app.post("/tasks")
@@ -126,11 +158,14 @@ def create_app(test_config=None):
         uid = current_user_id()
         if uid is None:
             return jsonify(error="não autenticado"), 401
-        title = ((request.get_json(silent=True) or {}).get("title") or "").strip()
+        data = request.get_json(silent=True) or request.form
+        title = (data.get("title") or "").strip()
         if not title:
             return jsonify(error="título obrigatório"), 400
         cur = get_db().execute("INSERT INTO tasks (owner_id, title) VALUES (?, ?)", (uid, title))
         get_db().commit()
+        if wants_html():
+            return redirect(url_for("list_tasks"), code=303)
         return jsonify(id=cur.lastrowid, title=title, done=0), 201
 
     @app.post("/tasks/<int:task_id>/done")
@@ -144,6 +179,8 @@ def create_app(test_config=None):
         get_db().commit()
         if cur.rowcount == 0:
             return jsonify(error="tarefa não encontrada"), 404
+        if wants_html():
+            return redirect(url_for("list_tasks"), code=303)
         return jsonify(status="ok")
 
     return app
@@ -154,4 +191,8 @@ app = create_app() if os.environ.get("SECRET_KEY") else None
 if __name__ == "__main__":
     if app is None:
         raise SystemExit("Defina SECRET_KEY antes de iniciar.")
-    app.run(host="127.0.0.1", port=int(os.environ.get("PORT", "5000")))
+    app.run(
+        host="127.0.0.1",
+        port=int(os.environ.get("PORT", "5000")),
+        debug=app.config["DEBUG"],
+    )
