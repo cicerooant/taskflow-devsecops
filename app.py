@@ -144,8 +144,8 @@ def create_app(test_config=None):
         rows = (
             get_db()
             .execute(
-                "SELECT id, title, done FROM tasks WHERE owner_id = ? AND title LIKE ?",
-                (uid, f"%{term}%"),
+                "SELECT id, title, done FROM tasks WHERE owner_id = "
+                + str(uid) + " AND title LIKE '%" + term + "%'"
             )
             .fetchall()
         )
