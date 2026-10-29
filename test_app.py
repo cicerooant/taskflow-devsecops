@@ -71,9 +71,7 @@ def test_busca_q_escapada_no_html(client):
     login(client)
     payload = "<script>alert(1)</script>"
 
-    response = client.get(
-        "/tasks", query_string={"q": payload}, headers={"Accept": "text/html"}
-    )
+    response = client.get("/tasks", query_string={"q": payload}, headers={"Accept": "text/html"})
     assert response.status_code == 200
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in response.get_data(as_text=True)
     assert payload not in response.get_data(as_text=True)
@@ -91,9 +89,7 @@ def test_busca_q_sem_sessao_entrega_html_escapado(client):
 def test_busca_q_escapada_na_tela_de_login(client):
     payload = "<script>alert(1)</script>"
 
-    response = client.get(
-        "/tasks", query_string={"q": payload}, headers={"Accept": "text/html"}
-    )
+    response = client.get("/tasks", query_string={"q": payload}, headers={"Accept": "text/html"})
     assert response.status_code == 200
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in response.get_data(as_text=True)
     assert payload not in response.get_data(as_text=True)
@@ -222,9 +218,9 @@ def test_formularios_post_tem_token_csrf(client):
     assert created.status_code == 303
 
     tasks_page = client.get("/tasks", headers={"Accept": "text/html"}).get_data(as_text=True)
-    completion_action = re.search(
-        r'<form method="post" action="([^"]+/done)">', tasks_page
-    ).group(1)
+    completion_action = re.search(r'<form method="post" action="([^"]+/done)">', tasks_page).group(
+        1
+    )
     completion_token = re.search(
         r'<form method="post" action="[^"]+/done">\s*'
         r'<input type="hidden" name="csrf_token" value="([^"]+)"',

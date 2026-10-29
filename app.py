@@ -218,9 +218,7 @@ def create_app(test_config=None):
         if row is None or not check_password_hash(row["password_hash"], data.get("password") or ""):
             log_event("login_failure", level=logging.WARNING, username=username)
             error = (
-                f"Credenciais inválidas para {username}"
-                if username
-                else "Credenciais inválidas"
+                f"Credenciais inválidas para {username}" if username else "Credenciais inválidas"
             )
             if request.is_json:
                 return jsonify(error=error), 401
