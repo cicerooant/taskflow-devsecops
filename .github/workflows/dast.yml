@@ -56,12 +56,19 @@ jobs:
               -c /zap/wrk/rules.tsv \
               -r /zap/out/zap-report.html \
               -i
+      - name: ZAP Active Scan (somente XSS refletido)
+        run: |
+          docker run --rm --network host \
+            -v "$GITHUB_WORKSPACE/.zap:/zap/wrk:ro" \
+            -v "$RUNNER_TEMP/zap-output:/zap/out:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap.sh -cmd -autorun /zap/wrk/xss-plan.yaml
       - name: Publicar relatório ZAP
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: zap-baseline-report
-          path: ${{ runner.temp }}/zap-output/zap-report.html
+          path: ${{ runner.temp }}/zap-output/*.html
           if-no-files-found: warn
           retention-days: 14
       - name: Encerrar TaskFlow
