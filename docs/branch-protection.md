@@ -1,38 +1,63 @@
-# Branch protection da `main` (Aula 1)
+# Proteção da branch `main`
 
-> **Atenção:** em repositório **privado**, proteção de branch exige plano pago
-> (GitHub Pro/Team). Contas Free não aplicam a regra. Alunos podem ativar o
-> **GitHub Student Developer Pack** (Pro grátis) ou criar o repositório numa organização.
+Configure a proteção em **Settings → Branches → Branch protection rules** (ou
+Rulesets) para `main`.
 
-## Pela interface
-Settings → Branches → Add branch ruleset (ou *Add classic branch protection rule*) para `main`:
+## Configuração obrigatória
 
-- [x] Require a pull request before merging (1 aprovação)
-- [x] Require review from Code Owners
-- [x] Require status checks to pass before merging, marcando:
-  `lint-and-test`, `semgrep`, `gitleaks`, `pip-audit`, `build-and-scan`, `zap-baseline`
-  (os checks só aparecem na lista depois de rodarem uma vez)
-- [x] Require branches to be up to date before merging
-- [x] Do not allow bypassing the above settings (inclui administradores)
+- Exigir pull request antes do merge.
+- Exigir que todos os checks abaixo passem antes do merge.
+- Exigir branch atualizada antes do merge, se esse requisito estiver habilitado
+  para o projeto.
+- Bloquear force-push e exclusão da branch.
 
-## Pelo `gh` CLI
+Selecione os nove status checks exatamente como aparecem no GitHub:
+
+| Workflow | Status check |
+|---|---|
+| `ci.yml` | `lint-and-test` |
+| `sast.yml` | `semgrep` |
+| `sast.yml` | `gitleaks` |
+| `sca.yml` | `pip-audit` |
+| `container.yml` | `build-and-scan` |
+| `dast.yml` | `zap-baseline` |
+| `iac-scan.yml` | `checkov` |
+| `iac-scan.yml` | `trivy-config` |
+| `iac-scan.yml` | `terraform-validate` |
+
+O workflow de IaC não deve ter filtro `paths:`. Como os três jobs são required
+checks, um PR sem arquivos Terraform/Dockerfile ainda precisa executar os jobs e
+reportar status; caso contrário, um check que não iniciou pode permanecer
+pendente e bloquear o merge. Os workflows também permitem execução manual por
+`workflow_dispatch`; `sca.yml` adicionalmente agenda uma execução semanal.
+
+## Conferência via GitHub CLI
+
+Depois de habilitar a proteção, confira a configuração atual:
+
 ```bash
-gh api -X PUT repos/OWNER/REPO/branches/main/protection --input - <<'JSON'
-{
-  "required_status_checks": {
-    "strict": true,
-    "contexts": ["lint-and-test", "semgrep", "gitleaks", "pip-audit", "build-and-scan", "zap-baseline"]
-  },
-  "enforce_admins": true,
-  "required_pull_request_reviews": {
-    "require_code_owner_reviews": true,
-    "required_approving_review_count": 1
-  },
-  "restrictions": null
-}
-JSON
+gh api repos/cicerooant/taskflow-devsecops/branches/main/protection/required_status_checks
 ```
 
-## Como provar que o gate funciona
-Abra um PR com `scripts/demo-shift-left.sh sqli`: o check `semgrep` fica vermelho e o
-botão de merge fica bloqueado. Print/gravação disso é a evidência do critério de 25%.
+Para configurar os contexts de checks via API (preserve outros campos já
+existentes na regra):
+
+```bash
+gh api \
+  --method PATCH \
+  repos/cicerooant/taskflow-devsecops/branches/main/protection/required_status_checks \
+  -f strict=true \
+  -f 'contexts[]=lint-and-test' \
+  -f 'contexts[]=semgrep' \
+  -f 'contexts[]=gitleaks' \
+  -f 'contexts[]=pip-audit' \
+  -f 'contexts[]=build-and-scan' \
+  -f 'contexts[]=zap-baseline' \
+  -f 'contexts[]=checkov' \
+  -f 'contexts[]=trivy-config' \
+  -f 'contexts[]=terraform-validate'
+```
+
+Os nomes dos jobs podem aparecer como status checks após pelo menos uma execução
+do workflow. Confirme a grafia na lista de checks do GitHub antes de salvar a
+regra de proteção.

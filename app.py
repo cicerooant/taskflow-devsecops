@@ -134,7 +134,9 @@ def create_app(test_config=None):
     def csrf_is_valid():
         supplied = request.form.get("csrf_token", "")
         expected = session.get("csrf_token", "")
-        return bool(supplied and expected) and hmac.compare_digest(supplied, expected)
+        if not supplied or not expected:
+            return False
+        return hmac.compare_digest(supplied, expected)
 
     def log_event(event, level=logging.INFO, **fields):
         log.log(
