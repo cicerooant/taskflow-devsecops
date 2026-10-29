@@ -14,6 +14,7 @@
         <button type="submit">Buscar</button>
       </form>
       <form method="post" action="{{ url_for('create_task') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label for="title">Nova tarefa</label>
         <input id="title" name="title" required>
         <button type="submit">Adicionar</button>
@@ -24,6 +25,7 @@
             {{ task.title }}{% if task.done %} (concluída){% endif %}
             {% if not task.done %}
               <form method="post" action="{{ url_for('complete_task', task_id=task.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit">Concluir</button>
               </form>
             {% endif %}
@@ -33,6 +35,7 @@
         {% endfor %}
       </ul>
       <form method="post" action="{{ url_for('logout') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit">Sair</button>
       </form>
     </main>

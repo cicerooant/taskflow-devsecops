@@ -1,8 +1,10 @@
 """TaskFlow: gerenciador de tarefas (Flask + SQLite)."""
 
+import hmac
 import json
 import logging
 import os
+import secrets
 import sqlite3
 import sys
 import time
@@ -49,6 +51,18 @@ def build_logger():
 
 
 log = build_logger()
+
+SECURITY_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; "
+        "object-src 'none'; script-src 'self'; style-src 'self'"
+    ),
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+    "Cache-Control": "no-store",
+}
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -110,6 +124,18 @@ def create_app(test_config=None):
     def wants_html():
         return request.accept_mimetypes.accept_html > request.accept_mimetypes["application/json"]
 
+    def csrf_token():
+        if "csrf_token" not in session:
+            session["csrf_token"] = secrets.token_urlsafe(32)
+        return session["csrf_token"]
+
+    app.jinja_env.globals["csrf_token"] = csrf_token
+
+    def csrf_is_valid():
+        supplied = request.form.get("csrf_token", "")
+        expected = session.get("csrf_token", "")
+        return bool(supplied and expected) and hmac.compare_digest(supplied, expected)
+
     def log_event(event, level=logging.INFO, **fields):
         log.log(
             level,
@@ -127,10 +153,14 @@ def create_app(test_config=None):
     def start_request():
         g.request_id = str(uuid.uuid4())
         g.request_started = time.perf_counter()
+        if request.method == "POST" and not request.is_json and not csrf_is_valid():
+            log_event("csrf_rejected", level=logging.WARNING, path=request.path)
+            return jsonify(error="token CSRF inválido"), 403
 
     @app.after_request
     def finish_request(response):
         response.headers["X-Request-ID"] = g.request_id
+        response.headers.update(SECURITY_HEADERS)
         log_event(
             "request_completed",
             method=request.method,

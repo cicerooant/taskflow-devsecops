@@ -1,4 +1,5 @@
 import json
+import re
 import sqlite3
 import uuid
 
@@ -35,7 +36,7 @@ def test_criar_listar_concluir(client):
     assert client.post("/tasks", json={"title": "estudar devsecops"}).status_code == 201
     tasks = client.get("/tasks").get_json()
     assert tasks[0]["title"] == "estudar devsecops"
-    assert client.post(f"/tasks/{tasks[0]['id']}/done").status_code == 200
+    assert client.post(f"/tasks/{tasks[0]['id']}/done", json={}).status_code == 200
 
 
 def test_busca_resiste_a_sql_injection(client):
@@ -109,10 +110,18 @@ def test_busca_q_escapada_diretamente_no_login(client):
 
 def test_erro_login_escapa_usuario_no_html(client):
     payload = "<script>alert(1)</script>"
+    login_page = client.get("/login")
+    csrf_token = re.search(
+        r'name="csrf_token" value="([^"]+)"', login_page.get_data(as_text=True)
+    ).group(1)
 
     response = client.post(
         "/login",
-        data={"username": payload, "password": "senha-incorreta"},
+        data={
+            "username": payload,
+            "password": "senha-incorreta",
+            "csrf_token": csrf_token,
+        },
         headers={"Accept": "text/html"},
     )
     assert response.status_code == 401
@@ -169,3 +178,87 @@ def test_logs_json_com_eventos_request_id_e_sem_dados_sensiveis(client, capsys):
     serialized_logs = json.dumps(events)
     for marker in (password_marker, cookie_marker, title_marker, search_marker):
         assert marker not in serialized_logs
+
+
+def test_cabecalhos_de_seguranca_presentes(client):
+    response = client.get("/login")
+
+    assert response.headers["Content-Security-Policy"] == (
+        "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; "
+        "object-src 'none'; script-src 'self'; style-src 'self'"
+    )
+    assert "unsafe-inline" not in response.headers["Content-Security-Policy"]
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert response.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
+    assert response.headers["Permissions-Policy"] == "geolocation=(), microphone=(), camera=()"
+    assert response.headers["Cache-Control"] == "no-store"
+
+
+def test_formularios_post_tem_token_csrf(client):
+    login_page = client.get("/login").get_data(as_text=True)
+    login_token = re.search(r'name="csrf_token" value="([^"]+)"', login_page).group(1)
+    assert login_token
+
+    response = client.post(
+        "/login",
+        data={"username": "admin", "password": ADMIN_PWD, "csrf_token": login_token},
+        headers={"Accept": "text/html"},
+    )
+    assert response.status_code == 303
+
+    assert client.post("/tasks", json={"title": "tarefa para concluir"}).status_code == 201
+    tasks_page = client.get("/tasks", headers={"Accept": "text/html"}).get_data(as_text=True)
+    task_tokens = re.findall(r'name="csrf_token" value="([^"]+)"', tasks_page)
+    assert len(task_tokens) == 3
+    assert len(set(task_tokens)) == 1
+    task_token = task_tokens[0]
+
+    created = client.post(
+        "/tasks",
+        data={"title": "tarefa enviada por formulário", "csrf_token": task_token},
+        headers={"Accept": "text/html"},
+    )
+    assert created.status_code == 303
+
+    tasks_page = client.get("/tasks", headers={"Accept": "text/html"}).get_data(as_text=True)
+    completion_action = re.search(
+        r'<form method="post" action="([^"]+/done)">', tasks_page
+    ).group(1)
+    completion_token = re.search(
+        r'<form method="post" action="[^"]+/done">\s*'
+        r'<input type="hidden" name="csrf_token" value="([^"]+)"',
+        tasks_page,
+    ).group(1)
+    completed = client.post(
+        completion_action,
+        data={"csrf_token": completion_token},
+        headers={"Accept": "text/html"},
+    )
+    assert completed.status_code == 303
+
+    tasks_page = client.get("/tasks", headers={"Accept": "text/html"}).get_data(as_text=True)
+    logout_match = re.search(
+        r'<form method="post" action="([^"]*/logout)">\s*'
+        r'<input type="hidden" name="csrf_token" value="([^"]+)"',
+        tasks_page,
+    )
+    assert logout_match
+    logout_response = client.post(
+        logout_match.group(1),
+        data={"csrf_token": logout_match.group(2)},
+        headers={"Accept": "text/html"},
+    )
+    assert logout_response.status_code == 303
+
+
+def test_form_post_sem_csrf_rejeitado_e_json_isento(client):
+    response = client.post(
+        "/login",
+        data={"username": "admin", "password": ADMIN_PWD},
+        headers={"Accept": "text/html"},
+    )
+    assert response.status_code == 403
+
+    assert login(client).status_code == 200
+    assert client.post("/tasks", json={"title": "json permanece isento"}).status_code == 201

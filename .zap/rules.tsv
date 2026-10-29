@@ -1,8 +1,4 @@
 # 10031 é passiva e observa o parâmetro q refletido em atributo HTML; WARN faz o job falhar.
 10031	WARN	Entrada q refletida em atributo deve ser revisada; autoescape e teste automatizado mitigam XSS.
-# Avisos abaixo foram aceitos neste laboratório e não devem ocultar novos alertas.
-10015	IGNORE	Cache de conteúdo sem dado sensível nesta aplicação demonstrativa.
+# O cabeçalho X-XSS-Protection é legado e obsoleto; CSP e autoescape são os controles atuais.
 10016	IGNORE	Cabeçalho X-XSS-Protection é legado; o controle é autoescape, não este header.
-10020	IGNORE	Sem conteúdo sensível que exija framing; cabeçalho fica para hardening posterior.
-10021	IGNORE	Hardening de nosniff fora deste módulo; sem evidência de impacto na demo local.
-10202	IGNORE	CSRF será tratado no hardening seguinte; a varredura é restrita ao runner local.
